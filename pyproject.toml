@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
+local = [
     "streamlit>=1.61.0",
 ]
+
+[tool.uv]
+default-groups = []
+
+[tool.vercel]
+entrypoint = "app:app"

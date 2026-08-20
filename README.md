@@ -5,11 +5,13 @@
 ## 로컬 실행
 
 ```powershell
-uv sync
+uv sync --group local
 copy .env.example .env
 ```
 
 `.env`에 공공데이터포털 인증키를 넣은 뒤:
+
+로컬 Streamlit은 한 번 `uv sync --group local` 후:
 
 ```powershell
 uv run streamlit run streamlit_app.py

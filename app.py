@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
+import traceback
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, select_autoescape
 
 from flood_api import (
     ACCIDENT_KIND_HELP,
@@ -26,11 +26,14 @@ from inquiry import (
     rows_to_csv,
     search_vehicles,
 )
-
-BASE_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from page_html import INDEX_HTML
 
 app = FastAPI(title="침수차 진위확인")
+_jinja = Environment(autoescape=select_autoescape(["html", "xml"]))
+
+
+def _index_template():
+    return _jinja.from_string(INDEX_HTML)
 
 
 def _parse_date(value: str) -> dt.date | None:
@@ -76,22 +79,39 @@ def _page_context(**extra):
     except FloodApiError as exc:
         context["key_ready"] = False
         context["key_error"] = str(exc)
+    except Exception as exc:
+        context["key_ready"] = False
+        context["key_error"] = f"인증키를 읽지 못했습니다. ({exc})"
     context.update(extra)
     return context
 
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context=_page_context(request=request),
+def _render(**extra) -> HTMLResponse:
+    html = _index_template().render(**_page_context(**extra))
+    return HTMLResponse(html)
+
+
+@app.exception_handler(Exception)
+async def show_error(request: Request, exc: Exception):
+    detail = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+    return HTMLResponse(
+        f"<pre>서버 오류: {detail}</pre>",
+        status_code=500,
     )
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return _render()
 
 
 @app.post("/", response_class=HTMLResponse)
 def search(
-    request: Request,
     vehicle_text: str = Form(""),
     kind_label: str = Form("전체"),
     period_mode: str = Form("전체 기간"),
@@ -109,26 +129,21 @@ def search(
     history_rows = []
     for item in lookups:
         history_rows.extend(item["records"])
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context=_page_context(
-            request=request,
-            error=error,
-            lookups=lookups,
-            period_label=period_label,
-            kind_label=kind_label,
-            vehicle_text=vehicle_text,
-            period_mode=period_mode,
-            start_date=start_date,
-            end_date=end_date,
-            history_count=sum(1 for item in lookups if item["has_history"]),
-            empty_count=sum(
-                1 for item in lookups if not item["has_history"] and not item["error"]
-            ),
-            fail_count=sum(1 for item in lookups if item["error"]),
-            history_rows=history_rows,
+    return _render(
+        error=error,
+        lookups=lookups,
+        period_label=period_label,
+        kind_label=kind_label,
+        vehicle_text=vehicle_text,
+        period_mode=period_mode,
+        start_date=start_date,
+        end_date=end_date,
+        history_count=sum(1 for item in lookups if item["has_history"]),
+        empty_count=sum(
+            1 for item in lookups if not item["has_history"] and not item["error"]
         ),
+        fail_count=sum(1 for item in lookups if item["error"]),
+        history_rows=history_rows,
     )
 
 
@@ -155,5 +170,5 @@ def download_csv(
     return StreamingResponse(
         iter([payload]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="침수차조회_{stamp}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="flood-check_{stamp}.csv"'},
     )
