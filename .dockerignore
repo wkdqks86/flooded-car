@@ -1,0 +1,15 @@
+.git
+.venv
+.env
+.env.*
+__pycache__
+*.pyc
+*.png
+*.docx
+*api*key*.txt
+*key*.txt
+.streamlit
+.cursor
+README.md
+uv.lock
+streamlit_app.py
