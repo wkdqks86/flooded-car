@@ -20,7 +20,7 @@ uv run streamlit run streamlit_app.py
 또는 Vercel과 같은 FastAPI 화면:
 
 ```powershell
-uv run uvicorn app:app --reload
+uv run uvicorn main:app --reload
 ```
 
 ```
@@ -31,7 +31,7 @@ DATA_GO_KR_SERVICE_KEY=발급받은_인증키
 
 ## Vercel 배포
 
-Streamlit은 Vercel Function에서 서버를 상시 띄울 수 없어, 배포는 FastAPI(`app.py`)를 사용합니다.
+Streamlit은 Vercel Function에서 서버를 상시 띄울 수 없어, 배포는 FastAPI(`main.py`)를 사용합니다.
 
 1. Vercel 프로젝트 **Environment Variables**에 `DATA_GO_KR_SERVICE_KEY`를 추가합니다.
 2. GitHub `main`에 푸시하면 다시 빌드됩니다.
