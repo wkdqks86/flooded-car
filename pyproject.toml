@@ -1,0 +1,10 @@
+[project]
+name = "flood-vehicle-check"
+version = "0.1.0"
+description = "금융위원회 침수차량 진위확인 조회"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "requests>=2.32.0",
+    "streamlit>=1.61.0",
+]

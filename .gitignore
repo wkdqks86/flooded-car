@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+*api*key*.txt
+*key*.txt
+~$*.docx
+.python-version
