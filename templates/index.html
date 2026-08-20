@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>침수차 진위확인</title>
+  <style>
+    :root {
+      --primary: #0b6e99;
+      --bg: #f7fbfc;
+      --card: #e7f1f5;
+      --text: #102a43;
+      --border: #c5dce6;
+      --red: #b42318;
+      --green: #027a48;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.8rem; }
+    .caption, .hint { color: #486581; font-size: 0.95rem; }
+    form, .result, .notice {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    label { display: block; font-weight: 600; margin: 16px 0 8px; }
+    input[type="text"], input[type="date"], textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 96px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 120px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pills label {
+      margin: 0;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: var(--card);
+      cursor: pointer;
+    }
+    .pills input { display: none; }
+    .pills input:checked + span,
+    .pills label:has(input:checked) {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .actions { display: flex; gap: 8px; margin-top: 20px; }
+    button, .button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button[type="submit"], .primary { background: var(--primary); color: white; }
+    .secondary { background: var(--card); color: var(--text); }
+    .error { color: var(--red); background: #fff1f0; border: 1px solid #ffccc7; border-radius: 8px; padding: 12px; }
+    .ok { color: var(--green); }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
+    .metric { background: var(--card); border-radius: 8px; padding: 12px; }
+    .metric b { display: block; font-size: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.95rem; }
+    th, td { border-bottom: 1px solid var(--border); text-align: left; padding: 8px; }
+    details { margin-top: 16px; }
+    @media (max-width: 640px) {
+      .metrics { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>침수차 진위확인</h1>
+    <p class="caption">금융위원회·보험개발원 공공데이터로 자동차보험에 접수된 침수 이력을 조회합니다.</p>
+
+    {% if not key_ready %}
+    <div class="notice error">
+      <p>{{ key_error }}</p>
+      <p>Vercel Environment Variables에 <code>DATA_GO_KR_SERVICE_KEY</code>를 넣어 주세요.</p>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/">
+      <label for="vehicle_text">차량번호</label>
+      <textarea id="vehicle_text" name="vehicle_text" placeholder="한 대: 12가1234&#10;여러 대는 줄바꿈 또는 쉼표로 구분" required>{{ vehicle_text }}</textarea>
+      <p class="hint">최대 {{ batch_limit }}대. 예: 12가1234, 123가1234, 서울12가1234</p>
+
+      <div class="composer">
+        <label>번호판 구성해서 넣기</label>
+        <div class="row">
+          <select id="plate_format">
+            {% for item in plate_formats %}<option>{{ item }}</option>{% endfor %}
+          </select>
+          <select id="plate_region">
+            {% for item in regions %}<option>{{ item }}</option>{% endfor %}
+          </select>
+          <select id="plate_usage">
+            {% for item in letters_by_usage %}<option>{{ item }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="plate_prefix" type="text" inputmode="numeric" placeholder="앞번호">
+          <select id="plate_letter"></select>
+          <input id="plate_serial" type="text" inputmode="numeric" maxlength="4" placeholder="1234">
+          <button type="button" class="secondary" id="add_plate">목록에 추가</button>
+        </div>
+      </div>
+
+      <label>사고 종류명</label>
+      <div class="pills">
+        {% for item in kinds %}
+        <label><input type="radio" name="kind_label" value="{{ item }}" {% if kind_label == item %}checked{% endif %}><span>{{ item }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="hint">추천은 전체입니다. 침수분손은 수리비가 차량 가치 이하, 침수전손은 수리 불능 또는 가치 초과입니다.</p>
+
+      <label>조회 기간</label>
+      <div class="pills">
+        {% for item in periods %}
+        <label><input type="radio" name="period_mode" value="{{ item }}" {% if period_mode == item %}checked{% endif %}><span>{{ item }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="hint">기간은 필수가 아닙니다. 비우거나 전체를 고르면 해당 차량의 모든 침수 이력을 조회합니다. 침수는 오래된 사고도 의미가 있어 전체 기간을 추천합니다.</p>
+      <div class="row" id="date_range" style="{% if period_mode != '직접 지정' %}display:none{% endif %}">
+        <input type="date" name="start_date" min="{{ min_date }}" max="{{ today }}" value="{{ start_date }}">
+        <input type="date" name="end_date" min="{{ min_date }}" max="{{ today }}" value="{{ end_date }}">
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary" {% if not key_ready %}disabled{% endif %}>침수 이력 조회</button>
+        <button type="submit" class="secondary" formaction="/csv" {% if not key_ready %}disabled{% endif %}>CSV로 저장</button>
+      </div>
+    </form>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if lookups is not none %}
+    <section class="result">
+      <h2>조회 결과</h2>
+      <p class="caption">{{ lookups|length }}대 · {{ kind_label }} · {{ period_label }}</p>
+      <div class="metrics">
+        <div class="metric">조회 대수<b>{{ lookups|length }}대</b></div>
+        <div class="metric">침수 이력 있음<b>{{ history_count }}대</b></div>
+        <div class="metric">이력 없음<b>{{ empty_count }}대</b></div>
+        <div class="metric">조회 실패<b>{{ fail_count }}대</b></div>
+      </div>
+      {% if history_count %}
+      <p style="color:var(--red)"><strong>침수 이력 있음</strong></p>
+      {% elif fail_count == lookups|length %}
+      <p style="color:var(--red)"><strong>조회 실패</strong></p>
+      {% else %}
+      <p class="ok"><strong>등록된 침수 이력 없음</strong></p>
+      <p class="hint">자동차보험에 접수된 침수 이력이 조회되지 않았습니다. 보험 미처리 사고는 결과에 나타나지 않습니다.</p>
+      {% endif %}
+
+      <table>
+        <thead><tr><th>차량번호</th><th>결과</th><th>건수</th></tr></thead>
+        <tbody>
+          {% for item in lookups %}
+          <tr>
+            <td>{{ item.vehicle_no }}</td>
+            <td>{% if item.error %}조회 실패{% elif item.has_history %}침수 이력 있음{% else %}이력 없음{% endif %}</td>
+            <td>{{ item.records|length }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if history_rows %}
+      <table>
+        <thead>
+          <tr>
+            <th>현재 차량번호</th>
+            <th>사고 발생일시</th>
+            <th>사고 종류</th>
+            <th>자료 작성일자</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in history_rows %}
+          <tr>
+            <td>{{ row["현재 차량번호"] }}</td>
+            <td>{{ row["사고 발생일시"] }}</td>
+            <td>{{ row["사고 종류"] }}</td>
+            <td>{{ row["자료 작성일자"] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <details>
+      <summary>조회 시 유의사항</summary>
+      <ul>
+        <li>결과가 없다고 해서 침수와 무관한 차량이라고 단정할 수 없습니다.</li>
+        <li>보험사에 신고되지 않았거나 자동차보험으로 처리되지 않은 침수는 확인되지 않습니다.</li>
+        <li>같은 번호로 재조회 시 이력이 사라지면 말소 등록 여부를 따로 확인해야 합니다.</li>
+        <li>정밀 확인이 필요하면 차량 진단 전문업체 또는 카히스토리를 함께 이용하세요.</li>
+      </ul>
+    </details>
+  </main>
+  <script>
+    const lettersByUsage = {{ letters_by_usage | tojson }};
+    const prefixLength = {{ prefix_length | tojson }};
+    const formatSel = document.getElementById("plate_format");
+    const regionSel = document.getElementById("plate_region");
+    const usageSel = document.getElementById("plate_usage");
+    const letterSel = document.getElementById("plate_letter");
+    const prefixInput = document.getElementById("plate_prefix");
+    const serialInput = document.getElementById("plate_serial");
+    const vehicleText = document.getElementById("vehicle_text");
+
+    function refreshLetters() {
+      const letters = lettersByUsage[usageSel.value] || [];
+      letterSel.innerHTML = letters.map((ch) => `<option>${ch}</option>`).join("");
+    }
+    function refreshFormat() {
+      const len = prefixLength[formatSel.value] || 3;
+      prefixInput.maxLength = len;
+      regionSel.style.display = formatSel.value === "지역번호판" ? "block" : "none";
+    }
+    function assemble() {
+      const region = formatSel.value === "지역번호판" ? regionSel.value : "";
+      return `${region}${prefixInput.value}${letterSel.value}${serialInput.value}`.replace(/\s+/g, "");
+    }
+    refreshLetters();
+    refreshFormat();
+    usageSel.addEventListener("change", refreshLetters);
+    formatSel.addEventListener("change", refreshFormat);
+    document.getElementById("add_plate").addEventListener("click", () => {
+      const number = assemble();
+      const current = vehicleText.value.trim();
+      vehicleText.value = current ? `${current}\n${number}` : number;
+    });
+    document.querySelectorAll("input[name=period_mode]").forEach((el) => {
+      el.addEventListener("change", () => {
+        document.getElementById("date_range").style.display = el.value === "직접 지정" && el.checked ? "flex" : "none";
+      });
+    });
+  </script>
+</body>
+</html>

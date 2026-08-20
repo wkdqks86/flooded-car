@@ -4,7 +4,14 @@ version = "0.1.0"
 description = "금융위원회 침수차량 진위확인 조회"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.115.0",
+    "jinja2>=3.1.0",
     "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.9",
     "requests>=2.32.0",
+]
+
+[dependency-groups]
+dev = [
     "streamlit>=1.61.0",
 ]

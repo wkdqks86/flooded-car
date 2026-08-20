@@ -1,14 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "web": {
-      "root": ".",
-      "entrypoint": "Dockerfile.vercel",
-      "runtime": "container"
+  "functions": {
+    "app.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{*.png,*.docx,.venv/**,**/*.md}"
     }
-  },
-  "rewrites": [
-    { "source": "/", "destination": { "service": "web" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
-  ]
+  }
 }
